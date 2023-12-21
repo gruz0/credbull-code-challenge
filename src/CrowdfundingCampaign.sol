@@ -13,6 +13,9 @@ contract CrowdfundingCampaign is Ownable {
     /// @dev Emitted when a supporter makes a deposit.
     event Deposit(address indexed supporter, uint256 amount);
 
+    /// @dev Emitted when an owner makes a withdrawal.
+    event Withdrew(uint256 amount);
+
     /// @dev Error thrown if the owner address is zero.
     error OwnerZeroAddress();
 
@@ -24,6 +27,9 @@ contract CrowdfundingCampaign is Ownable {
 
     /// @dev Error thrown if the supporter's allowance is insufficient.
     error InsufficientAllowance();
+
+    /// @dev Error thrown if the contract's token balance is zero
+    error NoFundsAvailable();
 
     /// @param _owner The address that will own the contract.
     /// @param _token The ERC20 token used for contributions.
@@ -44,5 +50,16 @@ contract CrowdfundingCampaign is Ownable {
         require(token.transferFrom(msg.sender, address(this), amount), "Transfer failed");
 
         emit Deposit(msg.sender, amount);
+    }
+
+    /// @dev Allows an owner to withdraw tokens from the contract.
+    function withdraw() external onlyOwner {
+        uint256 tokenBalance = token.balanceOf(address(this));
+
+        if (tokenBalance == 0) revert NoFundsAvailable();
+
+        require(token.transfer(msg.sender, tokenBalance), "Withdrawal failed");
+
+        emit Withdrew(tokenBalance);
     }
 }
