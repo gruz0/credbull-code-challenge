@@ -217,7 +217,7 @@ contract CrowdfundingCampaignTest is Test {
 
         assertEq(supporterShares, 100);
 
-        vm.expectRevert(CrowdfundingCampaign.SharesLocked.selector);
+        vm.expectRevert(CrowdfundingCampaign.SharesInVestingPeriod.selector);
 
         campaign.withdraw(1, supporter, supporter);
 
