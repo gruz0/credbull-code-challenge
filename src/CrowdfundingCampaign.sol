@@ -16,7 +16,7 @@ contract CrowdfundingCampaign is ERC4626, VestingWallet, ReentrancyGuard {
     event FundsReleased(uint256 amount);
 
     error ZeroDepositAmount();
-    error SharesLocked();
+    error SharesInVestingPeriod();
     // FIXME: Rename Goal to Campaign to have more self-explanatory errors
     error GoalIsNotReached();
     error GoalClosed();
@@ -61,46 +61,48 @@ contract CrowdfundingCampaign is ERC4626, VestingWallet, ReentrancyGuard {
         _commissionFeePercentage = commissionFeePercentage;
     }
 
-    function deposit(
+    function _deposit(
+        address caller,
+        address receiver,
         uint256 assets,
-        address receiver
-    ) public override returns (uint256 shares) {
+        uint256 shares
+    ) internal override {
         if (assets == 0) revert ZeroDepositAmount();
         if (goalClosed) revert GoalClosed();
 
-        shares = super.deposit(assets, receiver);
+        super._deposit(caller, receiver, assets, shares);
 
-        if (_asset.balanceOf(address(this)) >= _donationGoalAmount) {
+        if (!goalReached && _asset.balanceOf(address(this)) >= _donationGoalAmount) {
             goalReached = true;
         }
 
         _shareHolders[receiver] = true;
         _supporters.push(receiver);
-
-        return shares;
     }
 
-    function withdraw(
-        uint256 assets,
+    function _withdraw(
+        address caller,
         address receiver,
-        address owner
-    ) public override returns (uint256 shares) {
+        address owner,
+        uint256 assets,
+        uint256 shares
+    ) internal override {
         if (goalClosed) revert GoalClosed();
 
         if (assets > releasable(address(_asset))) {
-            revert SharesLocked();
+            revert SharesInVestingPeriod();
         }
 
-        shares = super.withdraw(assets, receiver, owner);
+        super._withdraw(caller, receiver, owner, assets, shares);
 
         if (goalReached && _asset.balanceOf(address(this)) < _donationGoalAmount) {
             goalReached = false;
         }
 
-        _shareHolders[msg.sender] = this.balanceOf(owner) > 0;
+        // FIXME: We should test it carefully
+        _shareHolders[caller] = this.balanceOf(caller) > 0;
+        _shareHolders[owner] = this.balanceOf(owner) > 0;
         _shareHolders[receiver] = this.balanceOf(receiver) > 0;
-
-        return shares;
     }
 
     function isShareHolder() external view returns (bool) {
