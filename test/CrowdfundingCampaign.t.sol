@@ -82,8 +82,6 @@ contract CrowdfundingCampaignTest is Test {
 
         campaign.deposit(0, supporter);
 
-        assertFalse(campaign.isShareHolder());
-
         vm.stopPrank();
 
         uint256 campaignBalance = token.balanceOf(address(campaign));
@@ -116,8 +114,6 @@ contract CrowdfundingCampaignTest is Test {
         );
 
         campaign.deposit(100, supporter);
-
-        assertFalse(campaign.isShareHolder());
     }
 
     function test_Deposit_Success_CampaignHasAccessToFunds() public {
@@ -170,8 +166,6 @@ contract CrowdfundingCampaignTest is Test {
         token.approve(address(campaign), 100);
 
         campaign.deposit(100, supporter);
-
-        assertTrue(campaign.isShareHolder());
 
         vm.stopPrank();
 
@@ -485,5 +479,40 @@ contract CrowdfundingCampaignTest is Test {
         assertEq(campaignOwnerBalance, 99);
         assertEq(platformOwnerBalance, 1);
         assertEq(campaignBalance, 0);
+    }
+
+    function test_RewardSupporters_Success() public {
+        address supporter1 = makeAddr("supporter1");
+        address supporter2 = makeAddr("supporter2");
+        address supporter3 = makeAddr("supporter3");
+
+        token.mint(address(supporter1), 50);
+        token.mint(address(supporter2), 25);
+        token.mint(address(supporter3), 25);
+
+        // Supporter1 donated twice, but will be stored as a supporter only once
+        vm.startPrank(supporter1);
+        token.approve(address(campaign), 50);
+        campaign.deposit(30, supporter1);
+        campaign.deposit(20, supporter1);
+        vm.stopPrank();
+
+        vm.startPrank(supporter2);
+        token.approve(address(campaign), 25);
+        campaign.deposit(25, supporter2);
+        vm.stopPrank();
+
+        vm.startPrank(supporter3);
+        token.approve(address(campaign), 25);
+        campaign.deposit(25, supporter3);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + campaignDuration);
+
+        vm.startPrank(campaignOwner);
+
+        campaignGuard.releaseFunds();
+
+        campaignGuard.rewardSupporters();
     }
 }

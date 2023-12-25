@@ -4,6 +4,7 @@ pragma solidity 0.8.21;
 import "forge-std/console.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {ERC4626} from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import {VestingWallet} from "@openzeppelin/contracts/finance/VestingWallet.sol";
@@ -30,8 +31,7 @@ contract CrowdfundingCampaign is ICrowdfundingCampaign, ERC4626, VestingWallet {
     address private immutable _campaignOwner;
     uint256 private immutable _donationGoalAmount;
     uint8 private immutable _commissionFeePercentage;
-    // The following two variables will be used for rewarding mechanism later
-    mapping(address supporter => bool hasShares) private _shareHolders;
+    mapping(address => bool) private _supporterExists;
     address[] private _supporters;
 
     // We may want to have these variables with public modifiers to provide better UX in the UI
@@ -80,8 +80,11 @@ contract CrowdfundingCampaign is ICrowdfundingCampaign, ERC4626, VestingWallet {
             goalReached = true;
         }
 
-        _shareHolders[receiver] = true;
-        _supporters.push(receiver);
+        if (!_supporterExists[receiver]) {
+            _supporterExists[receiver] = true;
+
+            _supporters.push(receiver);
+        }
     }
 
     function _withdraw(
@@ -94,19 +97,6 @@ contract CrowdfundingCampaign is ICrowdfundingCampaign, ERC4626, VestingWallet {
         if (goalClosed) revert GoalClosed();
 
         super._withdraw(caller, receiver, owner, assets, shares);
-
-        if (goalReached && _asset.balanceOf(address(this)) < _donationGoalAmount) {
-            goalReached = false;
-        }
-
-        // FIXME: We should test it carefully
-        _shareHolders[caller] = this.balanceOf(caller) > 0;
-        _shareHolders[owner] = this.balanceOf(owner) > 0;
-        _shareHolders[receiver] = this.balanceOf(receiver) > 0;
-    }
-
-    function isShareHolder() external view returns (bool) {
-        return _shareHolders[msg.sender];
     }
 
     // FIXME: Give this function more readable name
@@ -121,9 +111,6 @@ contract CrowdfundingCampaign is ICrowdfundingCampaign, ERC4626, VestingWallet {
 
         emit FundsReleased(assets);
 
-        // NOTE: We don't want to burn shares here,
-        // because its will be used for sending NFTs as a reward
-
         uint256 fees = (assets * _commissionFeePercentage) / 100;
 
         if (fees > 0) {
@@ -133,10 +120,16 @@ contract CrowdfundingCampaign is ICrowdfundingCampaign, ERC4626, VestingWallet {
         SafeERC20.safeTransfer(_asset, _campaignOwner, assets - fees);
     }
 
-    function reward() external view onlyOwner {
+    // @dev Used to send NFTs as a reward when campaign is succeed
+    function rewardSupporters() external view onlyOwner {
         if (!goalReached) revert GoalIsNotReached();
         if (!goalClosed) revert GoalIsNotClosed();
 
-        // Used to send NFTs as a reward when campaign is succeed
+        uint256 supportersLength = _supporters.length;
+
+        for (uint256 idx = 0; idx < supportersLength; idx++) {
+            // TODO: Transfer or ming NFTs here
+            console.log(_supporters[idx]);
+        }
     }
 }
