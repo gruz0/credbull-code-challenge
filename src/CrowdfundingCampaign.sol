@@ -8,20 +8,22 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {ERC4626} from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import {VestingWallet} from "@openzeppelin/contracts/finance/VestingWallet.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {ICrowdfundingCampaign} from "./ICrowdfundingCampaign.sol";
 
-contract CrowdfundingCampaign is ERC4626, VestingWallet, ReentrancyGuard {
+contract CrowdfundingCampaign is ICrowdfundingCampaign, ERC4626, VestingWallet {
     using SafeERC20 for IERC20;
 
     event FundsReleased(uint256 amount);
 
+    error PlatformOwnerZeroAddress();
+    error CampaignOwnerZeroAddress();
+    error DonationGoalIsZero();
+    error InvalidCommissionPercentage();
     error ZeroDepositAmount();
-    error SharesInVestingPeriod();
     // FIXME: Rename Goal to Campaign to have more self-explanatory errors
     error GoalIsNotReached();
     error GoalClosed();
     error GoalIsNotClosed();
-    error TooEarly();
 
     IERC20 private immutable _asset;
     address private immutable _platformOwner;
@@ -49,10 +51,12 @@ contract CrowdfundingCampaign is ERC4626, VestingWallet, ReentrancyGuard {
     )
       ERC4626(asset)
       ERC20(name, symbol)
-      VestingWallet(campaignOwner, startTimestamp, durationSeconds)
+      VestingWallet(_msgSender(), startTimestamp, durationSeconds)
     {
-        require(platformOwner != address(0), "Platform owner zero address");
-        require(campaignOwner != address(0), "Campaign owner zero address");
+        if (platformOwner == address(0)) revert PlatformOwnerZeroAddress();
+        if (campaignOwner == address(0)) revert CampaignOwnerZeroAddress();
+        if (donationGoalAmount == 0) revert DonationGoalIsZero();
+        if (commissionFeePercentage >= 100) revert InvalidCommissionPercentage();
 
         _asset = asset;
         _platformOwner = platformOwner;
@@ -86,12 +90,8 @@ contract CrowdfundingCampaign is ERC4626, VestingWallet, ReentrancyGuard {
         address owner,
         uint256 assets,
         uint256 shares
-    ) internal override {
+    ) internal override onlyOwner {
         if (goalClosed) revert GoalClosed();
-
-        if (assets > releasable(address(_asset))) {
-            revert SharesInVestingPeriod();
-        }
 
         super._withdraw(caller, receiver, owner, assets, shares);
 
@@ -109,16 +109,13 @@ contract CrowdfundingCampaign is ERC4626, VestingWallet, ReentrancyGuard {
         return _shareHolders[msg.sender];
     }
 
-    function releaseFunds() external onlyOwner nonReentrant {
+    // FIXME: Give this function more readable name
+    function releaseFunds() external onlyOwner {
         if (!goalReached) revert GoalIsNotReached();
 
         if (goalClosed) revert GoalClosed();
 
         uint256 assets = _asset.balanceOf(address(this));
-
-        if (assets > releasable(address(_asset))) {
-            revert TooEarly();
-        }
 
         goalClosed = true;
 
@@ -129,7 +126,10 @@ contract CrowdfundingCampaign is ERC4626, VestingWallet, ReentrancyGuard {
 
         uint256 fees = (assets * _commissionFeePercentage) / 100;
 
-        SafeERC20.safeTransfer(_asset, _platformOwner, fees);
+        if (fees > 0) {
+            SafeERC20.safeTransfer(_asset, _platformOwner, fees);
+        }
+
         SafeERC20.safeTransfer(_asset, _campaignOwner, assets - fees);
     }
 
@@ -138,10 +138,5 @@ contract CrowdfundingCampaign is ERC4626, VestingWallet, ReentrancyGuard {
         if (!goalClosed) revert GoalIsNotClosed();
 
         // Used to send NFTs as a reward when campaign is succeed
-    }
-
-    function cancel() external onlyOwner {
-        // We may want to have this function if campaign owner decides to stop their campaign
-        // In this case, we can unlock all tokens for shareholders
     }
 }
