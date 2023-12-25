@@ -94,4 +94,24 @@ contract CampaignGuard is Module {
             }
         }
     }
+
+    function rewardSupporters() external {
+        if (msg.sender != campaignOwner) revert CampaignOwnerOnly();
+
+        (bool success, bytes memory data) = execAndReturnData(
+            campaign,
+            0,
+            abi.encodeWithSelector(ICrowdfundingCampaign.rewardSupporters.selector),
+            Enum.Operation.Call
+        );
+
+        if (!success) {
+            if (data.length == 0) revert();
+
+            assembly {
+                revert(add(32, data), mload(data))
+            }
+        }
+    }
+
 }
