@@ -43,7 +43,7 @@ contract CrowdfundingCampaignTest is Test {
             campaignOwner: campaignOwner,
             name: "SharesToken",
             symbol: "SHARES",
-            donationGoalAmount: 100,
+            fundingGoal: 100,
             commissionFeePercentage: 1,
             startTimestamp: uint64(block.timestamp),
             durationSeconds: campaignDuration
@@ -333,7 +333,7 @@ contract CrowdfundingCampaignTest is Test {
         assertEq(supporterSharesAfterWithdrawal, 1);
     }
 
-    function test_ReleaseFunds_RevertWhen_NotACampaignOwner() public {
+    function test_RequestFunds_RevertWhen_NotACampaignOwner() public {
         address supporter = makeAddr("supporter");
 
         token.mint(address(supporter), 100);
@@ -348,10 +348,10 @@ contract CrowdfundingCampaignTest is Test {
 
         vm.expectRevert(CampaignGuard.CampaignOwnerOnly.selector);
 
-        campaignGuard.releaseFunds();
+        campaignGuard.requestFunds();
     }
 
-    function test_ReleaseFunds_RevertWhen_TooEarly() public {
+    function test_RequestFunds_RevertWhen_TooEarly() public {
         address supporter = makeAddr("supporter");
 
         token.mint(address(supporter), 100);
@@ -372,7 +372,7 @@ contract CrowdfundingCampaignTest is Test {
 
         vm.expectRevert(TimelockModifier.TransactionsTimelocked.selector);
 
-        campaignGuard.releaseFunds();
+        campaignGuard.requestFunds();
 
         vm.stopPrank();
 
@@ -383,7 +383,7 @@ contract CrowdfundingCampaignTest is Test {
         assertEq(campaignBalance, 99);
     }
 
-    function test_ReleaseFunds_RevertWhen_GoalIsNotReached() public {
+    function test_RequestFunds_RevertWhen_GoalIsNotReached() public {
         address supporter = makeAddr("supporter");
 
         token.mint(address(supporter), 100);
@@ -406,7 +406,7 @@ contract CrowdfundingCampaignTest is Test {
 
         vm.expectRevert(CrowdfundingCampaign.GoalIsNotReached.selector);
 
-        campaignGuard.releaseFunds();
+        campaignGuard.requestFunds();
 
         vm.stopPrank();
 
@@ -417,7 +417,7 @@ contract CrowdfundingCampaignTest is Test {
         assertEq(campaignBalance, 99);
     }
 
-    function test_ReleaseFunds_RevertWhen_GoalIsReachedButDateIsNotPassed() public {
+    function test_RequestFunds_RevertWhen_GoalIsReachedButDateIsNotPassed() public {
         address supporter = makeAddr("supporter");
 
         token.mint(address(supporter), 100);
@@ -440,7 +440,7 @@ contract CrowdfundingCampaignTest is Test {
 
         vm.expectRevert(TimelockModifier.TransactionsTimelocked.selector);
 
-        campaignGuard.releaseFunds();
+        campaignGuard.requestFunds();
 
         uint256 campaignOwnerBalance = token.balanceOf(campaignOwner);
         uint256 campaignBalance = token.balanceOf(address(campaign));
@@ -449,7 +449,7 @@ contract CrowdfundingCampaignTest is Test {
         assertEq(campaignBalance, 100);
     }
 
-    function test_ReleaseFunds_Success_FundsTransferedToTheOwner() public {
+    function test_RequestFunds_Success_FundsTransferedToTheOwner() public {
         address supporter = makeAddr("supporter");
 
         token.mint(address(supporter), 100);
@@ -470,7 +470,7 @@ contract CrowdfundingCampaignTest is Test {
 
         vm.startPrank(campaignOwner);
 
-        campaignGuard.releaseFunds();
+        campaignGuard.requestFunds();
 
         uint256 campaignOwnerBalance = token.balanceOf(campaignOwner);
         uint256 platformOwnerBalance = token.balanceOf(platformOwner);
@@ -511,7 +511,7 @@ contract CrowdfundingCampaignTest is Test {
 
         vm.startPrank(campaignOwner);
 
-        campaignGuard.releaseFunds();
+        campaignGuard.requestFunds();
 
         campaignGuard.rewardSupporters();
     }
