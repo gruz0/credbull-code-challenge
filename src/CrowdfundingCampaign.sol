@@ -14,14 +14,13 @@ import {ICrowdfundingCampaign} from "./ICrowdfundingCampaign.sol";
 contract CrowdfundingCampaign is ICrowdfundingCampaign, ERC4626, VestingWallet {
     using SafeERC20 for IERC20;
 
-    event FundsReleased(uint256 amount);
+    event FundsRequested(uint256 amount);
 
     error PlatformOwnerZeroAddress();
     error CampaignOwnerZeroAddress();
     error DonationGoalIsZero();
     error InvalidCommissionPercentage();
     error ZeroDepositAmount();
-    // FIXME: Rename Goal to Campaign to have more self-explanatory errors
     error GoalIsNotReached();
     error GoalClosed();
     error GoalIsNotClosed();
@@ -29,7 +28,7 @@ contract CrowdfundingCampaign is ICrowdfundingCampaign, ERC4626, VestingWallet {
     IERC20 private immutable _asset;
     address private immutable _platformOwner;
     address private immutable _campaignOwner;
-    uint256 private immutable _donationGoalAmount;
+    uint256 private immutable _fundingGoal;
     uint8 private immutable _commissionFeePercentage;
     mapping(address => bool) private _supporterExists;
     address[] private _supporters;
@@ -44,7 +43,7 @@ contract CrowdfundingCampaign is ICrowdfundingCampaign, ERC4626, VestingWallet {
         address campaignOwner,
         string memory name,
         string memory symbol,
-        uint256 donationGoalAmount,
+        uint256 fundingGoal,
         uint8 commissionFeePercentage,
         uint64 startTimestamp,
         uint64 durationSeconds
@@ -55,13 +54,13 @@ contract CrowdfundingCampaign is ICrowdfundingCampaign, ERC4626, VestingWallet {
     {
         if (platformOwner == address(0)) revert PlatformOwnerZeroAddress();
         if (campaignOwner == address(0)) revert CampaignOwnerZeroAddress();
-        if (donationGoalAmount == 0) revert DonationGoalIsZero();
+        if (fundingGoal == 0) revert DonationGoalIsZero();
         if (commissionFeePercentage >= 100) revert InvalidCommissionPercentage();
 
         _asset = asset;
         _platformOwner = platformOwner;
         _campaignOwner = campaignOwner;
-        _donationGoalAmount = donationGoalAmount;
+        _fundingGoal = fundingGoal;
         _commissionFeePercentage = commissionFeePercentage;
     }
 
@@ -76,7 +75,7 @@ contract CrowdfundingCampaign is ICrowdfundingCampaign, ERC4626, VestingWallet {
 
         super._deposit(caller, receiver, assets, shares);
 
-        if (!goalReached && _asset.balanceOf(address(this)) >= _donationGoalAmount) {
+        if (!goalReached && _asset.balanceOf(address(this)) >= _fundingGoal) {
             goalReached = true;
         }
 
@@ -99,8 +98,7 @@ contract CrowdfundingCampaign is ICrowdfundingCampaign, ERC4626, VestingWallet {
         super._withdraw(caller, receiver, owner, assets, shares);
     }
 
-    // FIXME: Give this function more readable name
-    function releaseFunds() external onlyOwner {
+    function requestFunds() external onlyOwner {
         if (!goalReached) revert GoalIsNotReached();
 
         if (goalClosed) revert GoalClosed();
@@ -109,7 +107,7 @@ contract CrowdfundingCampaign is ICrowdfundingCampaign, ERC4626, VestingWallet {
 
         goalClosed = true;
 
-        emit FundsReleased(assets);
+        emit FundsRequested(assets);
 
         uint256 fees = (assets * _commissionFeePercentage) / 100;
 
@@ -128,7 +126,7 @@ contract CrowdfundingCampaign is ICrowdfundingCampaign, ERC4626, VestingWallet {
         uint256 supportersLength = _supporters.length;
 
         for (uint256 idx = 0; idx < supportersLength; idx++) {
-            // TODO: Transfer or ming NFTs here
+            // TODO: Transfer or mint NFTs here
             console.log(_supporters[idx]);
         }
     }

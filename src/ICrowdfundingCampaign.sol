@@ -2,7 +2,7 @@
 pragma solidity 0.8.21;
 
 interface ICrowdfundingCampaign {
-    function releaseFunds() external;
+    function requestFunds() external;
 
     function rewardSupporters() external;
 }

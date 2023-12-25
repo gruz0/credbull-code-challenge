@@ -76,13 +76,13 @@ contract CampaignGuard is Module {
         }
     }
 
-    function releaseFunds() external {
+    function requestFunds() external {
         if (msg.sender != campaignOwner) revert CampaignOwnerOnly();
 
         (bool success, bytes memory data) = execAndReturnData(
             campaign,
             0,
-            abi.encodeWithSelector(ICrowdfundingCampaign.releaseFunds.selector),
+            abi.encodeWithSelector(ICrowdfundingCampaign.requestFunds.selector),
             Enum.Operation.Call
         );
 
@@ -113,5 +113,4 @@ contract CampaignGuard is Module {
             }
         }
     }
-
 }
