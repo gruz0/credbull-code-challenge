@@ -41,12 +41,11 @@ contract CrowdfundingCampaignTest is Test {
             asset: token,
             platformOwner: platformOwner,
             campaignOwner: campaignOwner,
-            name: "SharesToken",
-            symbol: "SHARES",
+            shareTokenName: "SharesToken",
+            shareTokenSymbol: "SHARES",
             fundingGoal: 100,
             commissionFeePercentage: 1,
-            startTimestamp: uint64(block.timestamp),
-            durationSeconds: campaignDuration
+            startTimestamp: uint64(block.timestamp)
         });
         campaign.transferOwnership(address(safe));
 
